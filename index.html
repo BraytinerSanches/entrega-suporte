@@ -65,6 +65,27 @@ body.dirty .pending{display:inline-flex}
 body[data-screen="login"] .top, body[data-screen="login"] .tabs, body[data-screen="login"] #wrap, body[data-screen="login"] #listView{display:none}
 body[data-screen="list"] .tabs, body[data-screen="list"] #wrap, body[data-screen="list"] .ed-only{display:none!important}
 body[data-screen="editor"] #listView, body[data-screen="editor"] .ls-only{display:none!important}
+body[data-screen="users"] .tabs, body[data-screen="users"] #wrap, body[data-screen="users"] .ed-only, body[data-screen="users"] #listView{display:none!important}
+body:not([data-screen="users"]) #usersView{display:none}
+body:not(.is-admin) .adm-only{display:none!important}
+#usersView{max-width:1100px;margin:0 auto;padding:22px 20px 40px}
+.newuser{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:16px}
+.newuser h3{font:700 17px "Barlow Condensed",sans-serif;margin:0 0 4px}
+.newuser .row{grid-template-columns:1.2fr 1.4fr 1fr auto;align-items:end}
+.newuser .chk{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink);padding-bottom:8px}
+@media (max-width:760px){.newuser .row{grid-template-columns:1fr}}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px}
+.badge.adm{background:var(--navy);color:#fff}
+.badge.usr{background:var(--field);color:var(--muted);border:1px solid var(--line)}
+.badge.on{background:#E3F2EA;color:#1F6B47}
+.badge.off{background:#FBE4E2;color:#9B2019}
+.ua{display:flex;gap:6px;flex-wrap:wrap}
+.ua button{padding:5px 9px;font-size:12.5px;background:transparent;color:var(--ink);border:1px solid var(--line)}
+.ua button:hover{border-color:var(--ink)}
+.ua button.danger{color:#B3261E}
+.ua button.danger:hover{border-color:#B3261E}
+.fm label.f{margin-bottom:10px}
+.fm .msg-err{margin:0 0 8px}
 body:not([data-screen="login"]) #loginView{display:none}
 #loginView{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
 .login{background:var(--panel);border-radius:10px;border-top:5px solid var(--orange);width:100%;max-width:380px;padding:28px 26px;box-shadow:0 6px 30px rgba(2,30,50,.12)}
@@ -202,7 +223,7 @@ label.chip:has(input:checked){background:var(--orange);border-color:var(--orange
     <button class="b-alt" id="btnPng">Baixar imagem</button>
     <button class="b-danger" id="btnDelete" hidden>Excluir</button>
   </div>
-  <div class="user"><span id="userEmail"></span><button class="b-alt" id="btnLogout">Sair</button></div>
+  <div class="user"><span id="userEmail"></span><button class="b-alt adm-only" id="btnUsers">Usuários</button><button class="b-alt" id="btnMyPass">Minha senha</button><button class="b-alt" id="btnLogout">Sair</button></div>
 </header>
 
 <div class="tabs" role="tablist">
@@ -224,6 +245,34 @@ label.chip:has(input:checked){background:var(--orange);border-color:var(--orange
     <button type="submit" class="b-main" id="lgBtn">Entrar</button>
     <div class="msg-err" id="lgErr" role="alert"></div>
   </form>
+</section>
+
+<div class="modal" id="fmModal" hidden role="dialog" aria-modal="true" aria-labelledby="fmTitle">
+  <form class="box fm" id="fmForm" autocomplete="off">
+    <h2 id="fmTitle"></h2><p id="fmText"></p>
+    <div id="fmFields"></div>
+    <div class="msg-err" id="fmErr" role="alert"></div>
+    <div class="mb"><button type="button" class="b-ghost" id="fmCancel">Cancelar</button><button type="submit" class="b-main" id="fmOk">Salvar</button></div>
+  </form>
+</div>
+
+<section id="usersView">
+  <div class="ls-bar">
+    <h2>Gestão de usuários</h2>
+    <button class="b-ghost" id="btnUsersBack" style="border:1px solid var(--line);background:var(--panel)">Voltar aos registros</button>
+  </div>
+  <form class="newuser" id="newUserForm" autocomplete="off">
+    <h3>Novo usuário</h3>
+    <div class="row">
+      <label class="f">Nome<input type="text" id="nuNome" required></label>
+      <label class="f">E-mail<input type="email" id="nuEmail" required></label>
+      <label class="f">Senha inicial<input type="text" id="nuPass" minlength="8" required placeholder="mín. 8 caracteres"></label>
+      <button type="submit" class="b-main" id="nuBtn">Criar usuário</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="nuAdmin"> Administrador (pode excluir registros e gerenciar usuários)</label>
+    <div class="msg-err" id="nuMsg" role="status"></div>
+  </form>
+  <div id="usersBody"></div>
 </section>
 
 <section id="listView">
@@ -548,6 +597,31 @@ function closeAsk(v){ modal.hidden = true; const r = modalResolve; modalResolve 
 modal.addEventListener('click', e => { if (e.target === modal) closeAsk(null); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeAsk(null); });
 
+/* ---------- janela com campos ---------- */
+const fmModal = $('#fmModal'); let fmHandler = null;
+function formBox(title, text, fields, okLabel, handler){
+  $('#fmTitle').textContent = title; $('#fmText').textContent = text || ''; $('#fmErr').textContent = '';
+  $('#fmFields').innerHTML = fields.map(f => `<label class="f">${f.label}<input type="${f.type||'password'}" id="fm_${f.id}" ${f.auto?`autocomplete="${f.auto}"`:''} required></label>`).join('');
+  $('#fmOk').textContent = okLabel; fmHandler = handler; fmModal.hidden = false;
+  $('#fmFields input').focus();
+}
+function closeForm(){ fmModal.hidden = true; fmHandler = null; }
+$('#fmCancel').onclick = closeForm;
+fmModal.addEventListener('click', e => { if (e.target === fmModal) closeForm(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !fmModal.hidden) closeForm(); });
+$('#fmForm').addEventListener('submit', async e => {
+  e.preventDefault(); if (!fmHandler) return;
+  const vals = {}; $('#fmFields').querySelectorAll('input').forEach(i => vals[i.id.slice(3)] = i.value);
+  $('#fmOk').disabled = true; $('#fmErr').textContent = '';
+  try { const err = await fmHandler(vals); if (err) $('#fmErr').textContent = err; else closeForm(); }
+  finally { $('#fmOk').disabled = false; }
+});
+function checkNewPass(p, c){
+  if (p.length < 8) return 'A nova senha precisa ter pelo menos 8 caracteres.';
+  if (c !== undefined && p !== c) return 'A confirmação não confere com a nova senha.';
+  return null;
+}
+
 /* ---------- banco de dados ---------- */
 const configured = !SUPABASE_URL.startsWith('COLE_') && !SUPABASE_ANON_KEY.startsWith('COLE_');
 const sb = (configured && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -557,12 +631,12 @@ let isAdmin = false;
 function updateDeleteBtn(){ $('#btnDelete').hidden = !(isAdmin && currentId); }
 async function checkAdmin(uid){
   const { data } = await sb.from('admins').select('user_id').eq('user_id', uid).maybeSingle();
-  isAdmin = !!data; updateDeleteBtn();
+  isAdmin = !!data; updateDeleteBtn(); document.body.classList.toggle('is-admin', isAdmin);
 }
 
 function show(screen){
   document.body.dataset.screen = screen;
-  $('#subtitle').textContent = screen === 'list' ? 'Registros salvos pela equipe' : 'Preencha, salve e baixe em PDF ou imagem';
+  $('#subtitle').textContent = {list:'Registros salvos pela equipe', users:'Acesso restrito ao administrador'}[screen] || 'Preencha, salve e baixe em PDF ou imagem';
   if (screen === 'editor') fitPreview();
   window.scrollTo({top:0});
 }
@@ -643,6 +717,105 @@ async function saveRecord(){
 }
 $('#btnSave').addEventListener('click', saveRecord);
 
+/* ---------- minha senha ---------- */
+$('#btnMyPass').addEventListener('click', () => {
+  formBox('Alterar minha senha', 'Informe a senha atual e escolha uma nova, com pelo menos 8 caracteres.', [
+    {id:'atual', label:'Senha atual', auto:'current-password'},
+    {id:'nova', label:'Nova senha', auto:'new-password'},
+    {id:'conf', label:'Confirmar nova senha', auto:'new-password'}
+  ], 'Alterar senha', async v => {
+    const bad = checkNewPass(v.nova, v.conf); if (bad) return bad;
+    const { data:{ user } } = await sb.auth.getUser();
+    const chk = await sb.auth.signInWithPassword({ email:user.email, password:v.atual });
+    if (chk.error) return 'Senha atual incorreta.';
+    const { error } = await sb.auth.updateUser({ password:v.nova });
+    if (error) return /different/i.test(error.message) ? 'A nova senha precisa ser diferente da atual.' : 'Não foi possível alterar: ' + error.message;
+    setStatus('Senha alterada com sucesso.'); flash('Senha alterada com sucesso.');
+    return null;
+  });
+});
+function flash(t){ const el = document.createElement('div'); el.textContent = t;
+  el.style.cssText = 'position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#02416C;color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;z-index:60;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 3200); }
+
+/* ---------- gestão de usuários (somente admin) ---------- */
+let users = [], myId = null;
+async function adminCall(body){
+  const { data, error } = await sb.functions.invoke('quick-action', { body });
+  if (error){
+    let msg = error.message;
+    try { const j = await error.context.json(); if (j?.error) msg = j.error; } catch {}
+    throw new Error(msg);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+$('#btnUsers').addEventListener('click', async () => {
+  if (dirty){
+    const v = await ask('Sair sem salvar?', 'Há alterações neste preenchimento que ainda não foram salvas.', [['Cancelar','b-ghost',null],['Salvar e continuar','b-save','save'],['Descartar alterações','b-danger','go']]);
+    if (!v) return;
+    if (v === 'save' && !(await saveRecord())) return;
+    markClean();
+  }
+  show('users'); loadUsers();
+});
+$('#btnUsersBack').addEventListener('click', () => { show('list'); loadList(); });
+
+async function loadUsers(){
+  $('#usersBody').innerHTML = '<div class="empty">Carregando usuários...</div>';
+  try { users = (await adminCall({ action:'list' })).users; renderUsers(); }
+  catch(e){ $('#usersBody').innerHTML = `<div class="empty">Não foi possível carregar os usuários: ${esc(e.message)}</div>`; }
+}
+const fmtDT = v => v ? new Date(v).toLocaleDateString('pt-BR') + ' ' + new Date(v).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : 'Nunca acessou';
+function renderUsers(){
+  users.sort((a,b) => (a.nome||a.email).localeCompare(b.nome||b.email,'pt-BR'));
+  $('#usersBody').innerHTML = `<div class="ls-wrap"><table class="ls-table"><thead><tr><th>Usuário</th><th>Perfil</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody>
+  ${users.map(u => { const me = u.id === myId; return `<tr data-id="${u.id}">
+    <td class="emp">${esc(u.nome || '—')}<small>${esc(u.email)}${me ? ' (você)' : ''}</small></td>
+    <td><span class="badge ${u.admin?'adm':'usr'}">${u.admin?'Administrador':'Usuário'}</span></td>
+    <td><span class="badge ${u.banned?'off':'on'}">${u.banned?'Desativado':'Ativo'}</span></td>
+    <td>${fmtDT(u.last_sign_in_at)}</td>
+    <td><div class="ua">
+      <button type="button" data-a="pass">Redefinir senha</button>
+      ${me ? '' : `<button type="button" data-a="admin">${u.admin?'Remover admin':'Tornar admin'}</button>
+      <button type="button" data-a="active">${u.banned?'Reativar':'Desativar'}</button>
+      <button type="button" data-a="delete" class="danger">Excluir</button>`}
+    </div></td></tr>`; }).join('')}
+  </tbody></table></div>`;
+  $('#usersBody').querySelectorAll('button[data-a]').forEach(b => b.onclick = () => userAction(b.closest('tr').dataset.id, b.dataset.a));
+}
+async function userAction(id, a){
+  const u = users.find(x => x.id === id); if (!u) return;
+  const who = u.nome || u.email;
+  const run = async (body, okMsg) => { try { await adminCall(body); flash(okMsg); loadUsers(); } catch(e){ flash('Erro: ' + e.message); } };
+  if (a === 'pass'){
+    formBox('Redefinir senha', `Nova senha para ${who}. Envie a senha para a pessoa por um canal seguro.`, [{id:'nova', label:'Nova senha', type:'text', auto:'off'}], 'Redefinir',
+      async v => { const bad = checkNewPass(v.nova); if (bad) return bad;
+        try { await adminCall({ action:'reset_password', id, password:v.nova }); flash('Senha redefinida.'); return null; } catch(e){ return e.message; } });
+  } else if (a === 'admin'){
+    const v = await ask(u.admin ? 'Remover administrador?' : 'Tornar administrador?', u.admin ? `${who} deixará de poder excluir registros e gerenciar usuários.` : `${who} poderá excluir registros e gerenciar usuários, inclusive o seu.`, [['Cancelar','b-ghost',null],['Confirmar','b-save','ok']]);
+    if (v) run({ action:'set_admin', id, admin:!u.admin }, 'Perfil atualizado.');
+  } else if (a === 'active'){
+    const v = await ask(u.banned ? 'Reativar usuário?' : 'Desativar usuário?', u.banned ? `${who} voltará a conseguir entrar no painel.` : `${who} não conseguirá mais entrar. Os registros salvos continuam no banco, e dá para reativar depois.`, [['Cancelar','b-ghost',null],[u.banned?'Reativar':'Desativar', u.banned?'b-save':'b-danger','ok']]);
+    if (v) run({ action:'set_active', id, active:u.banned }, u.banned ? 'Usuário reativado.' : 'Usuário desativado.');
+  } else if (a === 'delete'){
+    const v = await ask('Excluir usuário?', `A conta de ${who} será apagada definitivamente. Os registros que essa pessoa salvou continuam no banco. Se a ideia é só bloquear o acesso, prefira Desativar.`, [['Cancelar','b-ghost',null],['Excluir usuário','b-danger','ok']]);
+    if (v) run({ action:'delete', id }, 'Usuário excluído.');
+  }
+}
+$('#newUserForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#nuMsg'); msg.style.color = '';
+  const pass = $('#nuPass').value; const bad = checkNewPass(pass); if (bad){ msg.textContent = bad; return; }
+  $('#nuBtn').disabled = true; msg.textContent = 'Criando...';
+  try {
+    await adminCall({ action:'create', nome:$('#nuNome').value.trim(), email:$('#nuEmail').value.trim().toLowerCase(), password:pass, admin:$('#nuAdmin').checked });
+    msg.style.color = 'var(--ok, #1F6B47)'; msg.textContent = 'Usuário criado. Envie o link, o e-mail e a senha inicial para a pessoa.';
+    $('#newUserForm').reset(); loadUsers();
+  } catch(err){ msg.style.color = '#B3261E'; msg.textContent = 'Não foi possível criar: ' + err.message; }
+  finally { $('#nuBtn').disabled = false; }
+});
+
 $('#btnDelete').addEventListener('click', async () => {
   if (!currentId) return;
   const nome = readState().empresa || 'este registro';
@@ -657,10 +830,10 @@ if (sb){
   sb.auth.onAuthStateChange((event, session) => {
     if (session?.user){
       $('#userEmail').textContent = session.user.email;
-      checkAdmin(session.user.id);
+      myId = session.user.id; checkAdmin(session.user.id);
       if (document.body.dataset.screen === 'login'){ show('list'); loadList(); }
     } else {
-      currentId = null; records = []; isAdmin = false; updateDeleteBtn(); fillState({}); markClean(); refresh();
+      currentId = null; records = []; isAdmin = false; myId = null; document.body.classList.remove('is-admin'); closeForm(); updateDeleteBtn(); fillState({}); markClean(); refresh();
       $('#lgPass').value = ''; show('login');
     }
   });
