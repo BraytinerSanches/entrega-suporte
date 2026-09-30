@@ -200,6 +200,7 @@ label.chip:has(input:checked){background:var(--orange);border-color:var(--orange
     <button class="b-save" id="btnSave">Salvar</button>
     <button class="b-main" id="btnPdf">Baixar PDF</button>
     <button class="b-alt" id="btnPng">Baixar imagem</button>
+    <button class="b-danger" id="btnDelete" hidden>Excluir</button>
   </div>
   <div class="user"><span id="userEmail"></span><button class="b-alt" id="btnLogout">Sair</button></div>
 </header>
@@ -552,6 +553,12 @@ const configured = !SUPABASE_URL.startsWith('COLE_') && !SUPABASE_ANON_KEY.start
 const sb = (configured && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 let currentId = null;
 let records = [];
+let isAdmin = false;
+function updateDeleteBtn(){ $('#btnDelete').hidden = !(isAdmin && currentId); }
+async function checkAdmin(uid){
+  const { data } = await sb.from('admins').select('user_id').eq('user_id', uid).maybeSingle();
+  isAdmin = !!data; updateDeleteBtn();
+}
 
 function show(screen){
   document.body.dataset.screen = screen;
@@ -607,9 +614,9 @@ $('#lsSearch').addEventListener('input', renderList);
 
 function openRecord(id){
   const r = records.find(x => x.id === id); if (!r) return;
-  currentId = id; fillState(r.dados||{}); markClean(); refresh(); setStatus(''); show('editor');
+  currentId = id; fillState(r.dados||{}); markClean(); refresh(); setStatus(''); updateDeleteBtn(); show('editor');
 }
-$('#btnNew').addEventListener('click', () => { currentId = null; fillState({}); markClean(); refresh(); setStatus(''); show('editor'); });
+$('#btnNew').addEventListener('click', () => { currentId = null; fillState({}); markClean(); refresh(); setStatus(''); updateDeleteBtn(); show('editor'); });
 
 $('#btnBack').addEventListener('click', async () => {
   if (dirty){
@@ -630,19 +637,30 @@ async function saveRecord(){
     : await sb.from('entregas').insert(payload).select('id').single();
   $('#btnSave').disabled = false;
   if (res.error){ setStatus('Não foi possível salvar: ' + res.error.message, true); return false; }
-  currentId = res.data.id; markClean();
+  currentId = res.data.id; markClean(); updateDeleteBtn();
   setStatus('Salvo em ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + '.');
   return true;
 }
 $('#btnSave').addEventListener('click', saveRecord);
 
+$('#btnDelete').addEventListener('click', async () => {
+  if (!currentId) return;
+  const nome = readState().empresa || 'este registro';
+  const v = await ask('Excluir registro?', `O registro de ${nome} será apagado definitivamente do banco. Essa ação não pode ser desfeita.`, [['Cancelar','b-ghost',null],['Excluir definitivamente','b-danger','del']]);
+  if (v !== 'del') return;
+  const { data, error } = await sb.from('entregas').delete().eq('id', currentId).select('id');
+  if (error || !data || !data.length){ setStatus('Não foi possível excluir' + (error ? ': ' + error.message : ': sem permissão.'), true); return; }
+  currentId = null; markClean(); updateDeleteBtn(); show('list'); loadList();
+});
+
 if (sb){
   sb.auth.onAuthStateChange((event, session) => {
     if (session?.user){
       $('#userEmail').textContent = session.user.email;
+      checkAdmin(session.user.id);
       if (document.body.dataset.screen === 'login'){ show('list'); loadList(); }
     } else {
-      currentId = null; records = []; fillState({}); markClean(); refresh();
+      currentId = null; records = []; isAdmin = false; updateDeleteBtn(); fillState({}); markClean(); refresh();
       $('#lgPass').value = ''; show('login');
     }
   });
