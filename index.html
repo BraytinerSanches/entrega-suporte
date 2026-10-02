@@ -152,6 +152,8 @@ label.chip:has(input:checked){background:var(--orange);border-color:var(--orange
 @media (max-width:520px){.contact{grid-template-columns:1fr}.contact .cfields{grid-template-columns:1fr}}
 .cadrow{display:grid;grid-template-columns:1.1fr 1fr 34px;gap:6px;margin-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .cadrow [data-c=obs]{grid-column:1 / 3}
+.ctrow [data-c=tel]{grid-column:1}
+.ctrow [data-c=mail]{grid-column:2}
 .cadrow .b-del{grid-row:1;grid-column:3}
 .cadhead{display:grid;grid-template-columns:1.1fr 1fr 34px;gap:6px;font-size:12.5px;color:var(--muted);font-weight:600}
 .b-del{width:34px;height:34px;padding:0;background:transparent;color:var(--muted);border:1px solid var(--line);font-size:18px;line-height:1}
@@ -312,7 +314,10 @@ label.chip:has(input:checked){background:var(--orange);border-color:var(--orange
 
     <fieldset>
       <legend>Responsáveis pela abertura de chamados</legend>
-      <div id="contacts"></div>
+      <div class="cadhead"><span>Cargo</span><span>Nome</span><span></span></div>
+      <div id="ctRows"></div>
+      <button type="button" class="b-add" id="btnAddCt">+ Adicionar responsável</button>
+      <datalist id="cargoSug"><option>Diretor</option><option>Gerente</option><option>Coordenador CCO</option></datalist>
     </fieldset>
 
     <fieldset>
@@ -378,7 +383,7 @@ const GROUPS = [
   {key:'hardware',   title:'Hardware utilizado',   items:['AUT18','Suntech','Leitor RFID','Quanta Duo','Quanta Plus']},
 ];
 const RADIOS = {pacote:['Pacote 1','Pacote 2','Pacote 3','Pacote 4'], nivel:['Iniciante','Intermediário','Avançado']};
-const CONTACTS = [['dir','Diretor'],['ger','Gerente'],['cco','Coordenador CCO']];
+const LEGACY_CONTACTS = [['dir','Diretor'],['ger','Gerente'],['cco','Coordenador CCO']];
 const PAIRS = [
   ['linhas','Linhas','Linhas a monitorar','Linhas mapeadas','% mapeado'],
   ['qh','Quadro horário','Total da empresa','Cadastrados','% no sistema'],
@@ -392,12 +397,7 @@ const $ = s => document.querySelector(s);
 const form = $('#form');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-$('#contacts').innerHTML = CONTACTS.map(([k,l]) => `
-  <div class="contact"><div class="cname">${l}</div><div class="cfields">
-    <input type="text" name="${k}_nome" placeholder="Nome" aria-label="${l}: nome">
-    <input type="tel" name="${k}_tel" placeholder="Telefone" aria-label="${l}: telefone">
-    <input type="email" name="${k}_mail" placeholder="E-mail" aria-label="${l}: e-mail">
-  </div></div>`).join('');
+
 
 $('#checkGroups').innerHTML = GROUPS.map(g => `
   <div class="group-title">${g.title}</div>
@@ -430,8 +430,35 @@ function addCadRow(d={}, focus=false){
   $('#cadRows').appendChild(r);
   if (focus) r.querySelector('input').focus();
 }
+/* ---------- responsáveis pela abertura de chamados ---------- */
+function addCtRow(d={}, focus=false){
+  const r = document.createElement('div'); r.className='cadrow ctrow';
+  r.innerHTML = `<input type="text" list="cargoSug" data-c="cargo" placeholder="Selecione ou digite o cargo" aria-label="Cargo">
+    <input type="text" data-c="nome" placeholder="Nome" aria-label="Nome">
+    <button type="button" class="b-del" title="Remover responsável" aria-label="Remover responsável">×</button>
+    <input type="tel" data-c="tel" placeholder="Telefone" aria-label="Telefone">
+    <input type="email" data-c="mail" placeholder="E-mail" aria-label="E-mail">`;
+  ['cargo','nome','tel','mail'].forEach(k => r.querySelector(`[data-c=${k}]`).value = d[k]||'');
+  r.querySelector('.b-del').onclick = () => { r.remove(); if(!$('#ctRows').children.length) addCtRow(); markDirty(); refresh(); };
+  $('#ctRows').appendChild(r);
+  if (focus) r.querySelector('input').focus();
+}
+function readCt(){
+  return [...document.querySelectorAll('.ctrow')].map(r=>({
+    cargo:r.querySelector('[data-c=cargo]').value.trim(), nome:r.querySelector('[data-c=nome]').value.trim(),
+    tel:r.querySelector('[data-c=tel]').value.trim(), mail:r.querySelector('[data-c=mail]').value.trim()
+  })).filter(x=>x.cargo||x.nome||x.tel||x.mail);
+}
+function contatosFrom(d){
+  if (Array.isArray(d.contatos)) return d.contatos;
+  // registros antigos (Diretor / Gerente / Coordenador CCO fixos)
+  return LEGACY_CONTACTS.filter(([k]) => d[k+'_nome']||d[k+'_tel']||d[k+'_mail'])
+    .map(([k,l]) => ({cargo:l, nome:d[k+'_nome']||'', tel:d[k+'_tel']||'', mail:d[k+'_mail']||''}));
+}
+$('#btnAddCt').onclick = () => { addCtRow({}, true); };
+
 function readCad(){
-  return [...document.querySelectorAll('.cadrow')].map(r=>({
+  return [...document.querySelectorAll('#cadRows .cadrow')].map(r=>({
     item:r.querySelector('[data-c=item]').value.trim(), modelo:r.querySelector('[data-c=modelo]').value, obs:r.querySelector('[data-c=obs]').value.trim()
   })).filter(x=>x.item||x.modelo||x.obs);
 }
@@ -447,9 +474,11 @@ function readState(){
     else s[el.name] = el.value.trim();
   }
   s.cad = readCad();
+  s.contatos = readCt();
   return s;
 }
 function fillState(d){
+  $('#ctRows').innerHTML=''; const cts = contatosFrom(d); (cts.length ? cts : [{}]).forEach(x=>addCtRow(x));
   $('#cadRows').innerHTML=''; (d.cad && d.cad.length ? d.cad : [{}]).forEach(x=>addCadRow(x));
   for (const el of form.elements){
     if (!el.name) continue;
@@ -499,7 +528,7 @@ function analistaName(s){ return s.analista === '__outro' ? s.analistaOutro : s.
 function renderDoc(s){
   const tot=n(s.frotaTot), cad=n(s.frotaCad), avl=n(s.frotaAvl), com=n(s.frotaCom);
   const r = reserva(s);
-  const contacts = CONTACTS.filter(([k]) => s[k+'_nome']||s[k+'_tel']||s[k+'_mail']);
+  const contacts = s.contatos || [];
   const now = new Date().toLocaleDateString('pt-BR');
 
   $('#doc').innerHTML = `
@@ -538,8 +567,8 @@ function renderDoc(s){
     </div>
 
     <h3>Responsáveis pela abertura de chamados</h3>
-    ${contacts.length ? `<table class="ct"><tr><th style="width:22%">Posição</th><th>Nome</th><th style="width:22%">Telefone</th><th>E-mail</th></tr>
-      ${contacts.map(([k,l])=>`<tr><td>${l}</td><td>${val(s[k+'_nome'])}</td><td>${val(s[k+'_tel'])}</td><td>${val(s[k+'_mail'])}</td></tr>`).join('')}</table>`
+    ${contacts.length ? `<table class="ct"><tr><th style="width:22%">Cargo</th><th>Nome</th><th style="width:22%">Telefone</th><th>E-mail</th></tr>
+      ${contacts.map(c=>`<tr><td>${val(c.cargo)}</td><td>${val(c.nome)}</td><td>${val(c.tel)}</td><td>${val(c.mail)}</td></tr>`).join('')}</table>`
       : '<div class="none">Nenhum contato informado</div>'}
 
     <h3>Cadastros e configurações</h3>
