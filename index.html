@@ -168,7 +168,12 @@ body:not([data-screen="impl"]) #implView{display:none}
 body:not([data-screen="implDet"]) #implDetView{display:none}
 body[data-screen="config"] .tabs, body[data-screen="config"] #wrap, body[data-screen="config"] .ed-only, body[data-screen="config"] #listView{display:none!important}
 body:not([data-screen="config"]) #configView{display:none}
-#configView{max-width:900px;margin:0 auto;padding:22px 20px 40px}
+#configView{max-width:1100px;margin:0 auto;padding:22px 20px 40px}
+.ctabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.ctabs button{background:transparent;border:0;border-radius:0;color:var(--muted);padding:10px 14px;border-bottom:3px solid transparent;white-space:nowrap}
+.ctabs button.active{color:var(--ink);border-bottom-color:var(--orange)}
+.cfgh{font:700 19px 'Barlow Condensed',sans-serif;margin:0 0 4px}
+.cfgp{margin:0 0 12px;color:var(--muted)}
 .cardh{font:700 18px "Barlow Condensed",sans-serif;margin:0;padding:14px 16px 10px}
 #implView{max-width:1200px;margin:0 auto;padding:22px 20px 40px}
 #implDetView{padding:22px 24px 40px}
@@ -299,7 +304,6 @@ select.r-cit{background:#E6EEF4;color:var(--navy);font-weight:600}select.r-cli{b
 <nav class="mainnav" aria-label="Módulos">
   <button type="button" data-go="impl">Implantações</button>
   <button type="button" data-go="list">Entregas para Suporte</button>
-  <button type="button" data-go="users" class="adm-only">Usuários</button>
   <button type="button" data-go="config" class="adm-only">Configurações</button>
 </nav>
 
@@ -357,7 +361,7 @@ select.r-cit{background:#E6EEF4;color:var(--navy);font-weight:600}select.r-cli{b
   <div class="det-card" id="implForm">
     <div class="row">
       <label class="f">Cliente<input type="text" id="imNome" placeholder="Nome da empresa"></label>
-      <label class="f">Analista Cittati<input type="text" id="imCittati"></label>
+      <label class="f">Analista Cittati<select id="imCittati"><option value="">Selecione</option></select></label>
       <label class="f">Responsável do cliente<input type="text" id="imCliente"></label>
       <label class="f">Produtos do contrato<input type="text" id="imProdutos" placeholder="Separe por vírgula"></label>
     </div>
@@ -380,22 +384,12 @@ select.r-cit{background:#E6EEF4;color:var(--navy);font-weight:600}select.r-cli{b
 
 <section id="configView">
   <div class="ls-bar"><h2>Configurações</h2></div>
-  <div class="det-card">
-    <h3 style="font:700 19px 'Barlow Condensed',sans-serif;margin:0 0 4px">Catálogo de atividades</h3>
-    <p style="margin:0 0 12px;color:var(--muted)">Nomes sugeridos ao preencher a coluna Atividade nas implantações. O catálogo é compartilhado por todas as implantações e só administradores podem alterá-lo.</p>
-    <div id="catList"></div>
-    <div class="cadrow" style="grid-template-columns:1fr auto;border:0">
-      <input type="text" id="catNew" placeholder="Nova atividade do catálogo" aria-label="Nova atividade do catálogo">
-      <button type="button" class="b-main" id="btnAddCat">Adicionar</button>
-    </div>
+  <div class="ctabs" role="tablist">
+    <button type="button" data-ct="users" class="active">Usuários</button>
+    <button type="button" data-ct="ana">Analistas</button>
+    <button type="button" data-ct="cat">Catálogo de atividades</button>
   </div>
-</section>
-
-<section id="usersView">
-  <div class="ls-bar">
-    <h2>Gestão de usuários</h2>
-    
-  </div>
+  <div id="cfgUsers">
   <div id="storageCard"></div>
   <form class="newuser" id="newUserForm" autocomplete="off">
     <h3>Novo usuário</h3>
@@ -409,7 +403,32 @@ select.r-cit{background:#E6EEF4;color:var(--navy);font-weight:600}select.r-cli{b
     <div class="msg-err" id="nuMsg" role="status"></div>
   </form>
   <div id="usersBody"></div>
+  </div>
+  <div id="cfgAna" hidden>
+    <div class="det-card">
+      <h3 class="cfgh">Analistas</h3>
+      <p class="cfgp">Nomes que aparecem para seleção no campo de analista das implantações e das entregas para suporte. Remover um nome não altera os registros que já usam esse analista.</p>
+      <div id="anaList"></div>
+      <div class="cadrow" style="grid-template-columns:1fr auto;border:0">
+        <input type="text" id="anaNew" placeholder="Nome do analista" aria-label="Nome do novo analista">
+        <button type="button" class="b-main" id="btnAddAna">Adicionar</button>
+      </div>
+    </div>
+  </div>
+  <div id="cfgCat" hidden>
+    <div class="det-card">
+      <h3 class="cfgh">Catálogo de atividades</h3>
+      <p class="cfgp">Nomes sugeridos ao preencher a coluna Atividade nas implantações. O catálogo é compartilhado por todas as implantações.</p>
+      <div id="catList"></div>
+      <div class="cadrow" style="grid-template-columns:1fr auto;border:0">
+        <input type="text" id="catNew" placeholder="Nova atividade do catálogo" aria-label="Nova atividade do catálogo">
+        <button type="button" class="b-main" id="btnAddCat">Adicionar</button>
+      </div>
+    </div>
+  </div>
 </section>
+
+
 
 <section id="listView">
   <div class="ls-bar">
@@ -433,9 +452,7 @@ select.r-cit{background:#E6EEF4;color:var(--navy);font-weight:600}select.r-cli{b
       <div class="row two">
         <label class="f">Analista
           <select name="analista">
-            <option value="">Selecione</option>
-            <option>Braytiner Sanches</option><option>Ricardo Oliveira</option>
-            <option>Paulo Nascimento</option><option>Eduardo Morales</option><option value="__outro">Outro</option>
+            <option value="">Selecione</option><option value="__outro">Outro</option>
           </select>
         </label>
         <label class="f" id="outroWrap" hidden>Nome do analista<input type="text" name="analistaOutro"></label>
@@ -621,6 +638,8 @@ function fillState(d){
     else if (el.type === 'radio') el.checked = v === el.value;
     else el.value = v ?? '';
   }
+  const sel = form.elements.analista;
+  if (d.analista && d.analista !== '__outro' && sel.value !== d.analista){ sel.value = '__outro'; form.elements.analistaOutro.value = d.analista; }
 }
 
 /* ---------- cálculos ---------- */
@@ -800,7 +819,7 @@ async function checkAdmin(uid){
 function show(screen){
   document.body.dataset.screen = screen;
   $('#subtitle').textContent = {impl:'Acompanhamento das implantações', implDet:'Acompanhamento das implantações', list:'Entregas para o suporte', users:'Acesso restrito ao administrador', config:'Acesso restrito ao administrador'}[screen] || 'Preencha, salve e baixe em PDF ou imagem';
-  const mod = {impl:'impl', implDet:'impl', list:'list', editor:'list', users:'users', config:'config'}[screen];
+  const mod = {impl:'impl', implDet:'impl', list:'list', editor:'list', config:'config'}[screen];
   document.querySelectorAll('.mainnav button').forEach(b => b.classList.toggle('active', b.dataset.go === mod));
   if (screen === 'editor') fitPreview();
   window.scrollTo({top:0});
@@ -931,8 +950,7 @@ async function go(mod){
   if (!(await leaveGuard())) return;
   if (mod === 'impl'){ show('impl'); loadImpl(); }
   else if (mod === 'list'){ show('list'); loadList(); }
-  else if (mod === 'users' && isAdmin){ show('users'); loadUsers(); loadStorage(); }
-  else if (mod === 'config' && isAdmin){ show('config'); loadCatalog(); }
+  else if (mod === 'config' && isAdmin){ show('config'); cfgTab('users'); }
 }
 document.querySelectorAll('.mainnav button').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 
@@ -1041,7 +1059,7 @@ function openImpl(id){
   const r = id ? impls.find(x => x.id === id) : null;
   currentImpl = r ? { id:r.id, dados: JSON.parse(JSON.stringify(r.dados||{})) } : { id:null, dados:{ cliente:{nome:'',cittati:'',cliente:'',produtos:[]}, atividades:[] } };
   const c = currentImpl.dados.cliente || {};
-  $('#imNome').value = c.nome || r?.cliente || ''; $('#imCittati').value = c.cittati || '';
+  $('#imNome').value = c.nome || r?.cliente || ''; setImplAnalista(c.cittati || '');
   $('#imCliente').value = c.cliente || ''; $('#imProdutos').value = (c.produtos||[]).join(', ');
   $('#implMsg').textContent = ''; $('#implAuto').textContent = ''; clearTimeout(implTimer); markClean(); renderImplDet(); show('implDet');
   loadCatalog();
@@ -1142,6 +1160,72 @@ $('#btnAddAtv').addEventListener('click', () => {
   renderAtvTable(); renderGroupsImpl(); implChanged();
   $(`#atvBody tr[data-id="${id}"] input[data-f=nome]`).focus();
 });
+
+/* ---------- configurações: abas ---------- */
+function cfgTab(t){
+  document.querySelectorAll('.ctabs button').forEach(b => b.classList.toggle('active', b.dataset.ct === t));
+  $('#cfgUsers').hidden = t !== 'users'; $('#cfgAna').hidden = t !== 'ana'; $('#cfgCat').hidden = t !== 'cat';
+  if (t === 'users'){ loadUsers(); loadStorage(); }
+  else if (t === 'ana'){ loadAnalistas(); }
+  else if (t === 'cat'){ loadCatalog(); }
+}
+document.querySelectorAll('.ctabs button').forEach(b => b.addEventListener('click', () => cfgTab(b.dataset.ct)));
+
+/* ---------- analistas ---------- */
+let analistas = [];
+async function loadAnalistas(){
+  const { data, error } = await sb.from('analistas').select('id,nome').order('nome');
+  if (error){ $('#anaList').innerHTML = `<div class="note">Lista de analistas indisponível: ${esc(error.message)}</div>`; return; }
+  analistas = data; renderAnaList(); fillAnalistaSelects();
+}
+function fillAnalistaSelects(){
+  const names = analistas.map(a => a.nome);
+  // entrega para suporte
+  const sel = form.elements.analista, cur = sel.value, outro = form.elements.analistaOutro.value;
+  sel.innerHTML = '<option value="">Selecione</option>' + names.map(n => `<option>${esc(n)}</option>`).join('') + '<option value="__outro">Outro</option>';
+  if (cur === '__outro' && names.includes(outro)){ sel.value = outro; form.elements.analistaOutro.value = ''; }
+  else sel.value = cur;
+  if (sel.value !== cur && cur && cur !== '__outro'){ sel.value = '__outro'; form.elements.analistaOutro.value = cur; }
+  $('#outroWrap').hidden = sel.value !== '__outro';
+  // implantação
+  setImplAnalista($('#imCittati').value);
+}
+function setImplAnalista(v){
+  const names = analistas.map(a => a.nome), s2 = $('#imCittati');
+  s2.innerHTML = '<option value="">Selecione</option>' + names.map(n => `<option>${esc(n)}</option>`).join('')
+    + (v && !names.includes(v) ? `<option value="${esc(v)}">${esc(v)} (fora da lista)</option>` : '');
+  s2.value = v || '';
+}
+function renderAnaList(){
+  $('#anaList').innerHTML = analistas.length ? analistas.map(a => `<div class="catrow" data-aid="${a.id}">
+    <input type="text" value="${esc(a.nome)}" data-ana aria-label="Nome do analista">
+    <button type="button" class="b-del" data-anadel aria-label="Remover analista" title="Remover analista">×</button></div>`).join('')
+    : '<div class="empty">Nenhum analista cadastrado ainda.</div>';
+}
+$('#anaList').addEventListener('change', async e => {
+  if (!e.target.matches('[data-ana]')) return;
+  const id = e.target.closest('[data-aid]').dataset.aid, nome = e.target.value.trim(); if (!nome) return;
+  const { error } = await sb.from('analistas').update({ nome }).eq('id', id);
+  if (error) flash('Erro: ' + error.message); else { const a = analistas.find(x => String(x.id) === id); if (a) a.nome = nome; fillAnalistaSelects(); flash('Analista atualizado.'); }
+});
+$('#anaList').addEventListener('click', async e => {
+  if (!e.target.closest('[data-anadel]')) return;
+  const a = analistas.find(x => String(x.id) === e.target.closest('[data-aid]').dataset.aid);
+  const v = await ask('Remover analista?', `"${a.nome}" deixará de aparecer para seleção. Os registros que já usam esse nome não são alterados.`, [['Cancelar','b-ghost',null],['Remover','b-danger','ok']]);
+  if (!v) return;
+  const { error } = await sb.from('analistas').delete().eq('id', a.id);
+  if (error) flash('Erro: ' + error.message); else { analistas = analistas.filter(x => x !== a); renderAnaList(); fillAnalistaSelects(); }
+});
+async function addAnalista(){
+  const nome = $('#anaNew').value.trim(); if (!nome) return;
+  if (analistas.some(a => a.nome.toLowerCase() === nome.toLowerCase())){ flash('Esse analista já está cadastrado.'); return; }
+  const { data, error } = await sb.from('analistas').insert({ nome }).select('id').single();
+  if (error){ flash('Erro: ' + error.message); return; }
+  analistas.push({ id:data.id, nome }); analistas.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+  $('#anaNew').value = ''; renderAnaList(); fillAnalistaSelects(); $('#anaNew').focus();
+}
+$('#btnAddAna').addEventListener('click', addAnalista);
+$('#anaNew').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addAnalista(); } });
 
 /* catálogo (compartilhado) */
 async function loadCatalog(){
@@ -1275,7 +1359,7 @@ if (sb){
   sb.auth.onAuthStateChange((event, session) => {
     if (session?.user){
       $('#userEmail').textContent = session.user.email;
-      myId = session.user.id; checkAdmin(session.user.id);
+      myId = session.user.id; checkAdmin(session.user.id); loadAnalistas();
       if (document.body.dataset.screen === 'login'){ show('impl'); loadImpl(); }
     } else {
       currentId = null; records = []; isAdmin = false; myId = null; document.body.classList.remove('is-admin'); closeForm(); updateDeleteBtn(); fillState({}); markClean(); refresh(); impls = []; currentImpl = null;
