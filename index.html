@@ -189,6 +189,23 @@ body.dirty .det-bar .pending{display:inline-flex}
 .tile b{font:700 26px/1.1 "Barlow Condensed",sans-serif}
 .st{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
 .st-c{background:#E3F2EA;color:#1F6B47}.st-a{background:#E1EEF8;color:#0A5A92}.st-w{background:#FFF1E0;color:#9A4A00}.st-g{background:var(--field);color:var(--muted);border:1px solid var(--line)}
+.autosave{font-size:13px;color:var(--muted)}
+.itabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 10px}
+.itabs button{background:transparent;border:0;border-radius:0;color:var(--muted);padding:12px 12px 10px;border-bottom:3px solid transparent}
+.itabs button.active{color:var(--ink);border-bottom-color:var(--orange)}
+table.et td{padding:5px 4px;vertical-align:middle}
+table.et th{padding:9px 6px;white-space:nowrap}
+table.et input,table.et select{padding:5px 6px;font-size:13.5px}
+table.et input[type=number]{width:70px;text-align:center}
+table.et input[type=date]{width:132px}
+table.et td.ord{white-space:nowrap;text-align:center}
+.ordb{display:inline-flex;flex-direction:column;vertical-align:middle;margin-left:4px}
+.ordb button{padding:0 5px;font-size:9px;line-height:1.3;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:3px}
+.ordb button:disabled{opacity:.3}
+select.s-c{background:#E3F2EA;color:#1F6B47;font-weight:600}select.s-a{background:#E1EEF8;color:#0A5A92;font-weight:600}
+select.s-w{background:#FFF1E0;color:#9A4A00;font-weight:600}select.s-g{font-weight:600}
+select.r-cit{background:#E6EEF4;color:var(--navy);font-weight:600}select.r-cli{background:#FDEBD8;color:#8A4500;font-weight:600}
+.catrow{display:grid;grid-template-columns:1fr 34px;gap:6px;margin-bottom:6px}
 .note{background:#E1EEF8;color:#0A4A78;border-radius:6px;padding:9px 12px;font-size:13.5px;margin-bottom:12px}
 .storage{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:16px;align-items:center}
 .storage h3{font:700 17px "Barlow Condensed",sans-serif;margin:0 0 6px}
@@ -317,9 +334,13 @@ body.dirty .det-bar .pending{display:inline-flex}
     <h2 id="implTitle">Nova implantação</h2>
     <span class="pending" role="status">Alterações não salvas</span>
     <button class="b-alt" id="btnImplBack" style="color:var(--ink)">Voltar à lista</button>
+    <span class="autosave" id="implAuto"></span>
+    <button class="b-alt" id="btnImplCsv" style="color:var(--ink)">Exportar CSV</button>
+    <button class="b-alt" id="btnImplImg" style="color:var(--ink)">Exportar imagem</button>
     <button class="b-save" id="btnImplSave">Salvar</button>
     <button class="b-danger" id="btnImplDelete" hidden>Excluir</button>
   </div>
+  <div id="implCapture">
   <div class="det-card" id="implForm">
     <div class="row">
       <label class="f">Cliente<input type="text" id="imNome" placeholder="Nome da empresa"></label>
@@ -329,7 +350,30 @@ body.dirty .det-bar .pending{display:inline-flex}
     </div>
     <div class="msg-err" id="implMsg" role="status"></div>
   </div>
-  <div id="implDetBody"></div>
+  <div class="groups" id="implGroups"></div>
+  </div>
+  <div class="det-card" style="padding:0">
+    <div class="itabs" role="tablist">
+      <button type="button" class="active" data-it="atv">Atividades do projeto</button>
+      <button type="button" data-it="cat">Catálogo de atividades</button>
+    </div>
+    <div id="itAtv" style="padding:14px 16px">
+      <div class="ls-wrap"><table class="ls-table et" id="atvTable"><thead><tr>
+        <th>Ordem</th><th style="min-width:220px">Atividade</th><th>Ativ. prev.</th><th>Ativ. real</th><th>Dias prev.</th><th>Dias real</th>
+        <th>Início</th><th>Fim</th><th>% concl.</th><th>Responsável</th><th>Status</th><th style="min-width:200px">Observação</th><th></th>
+      </tr></thead><tbody id="atvBody"></tbody></table></div>
+      <button type="button" class="b-add" id="btnAddAtv">+ Adicionar atividade</button>
+    </div>
+    <div id="itCat" style="padding:14px 16px" hidden>
+      <p style="margin:0 0 10px;color:var(--muted)">Nomes sugeridos ao preencher a coluna Atividade. O catálogo é compartilhado entre todas as implantações.</p>
+      <div id="catList"></div>
+      <div class="cadrow" style="grid-template-columns:1fr auto;border:0">
+        <input type="text" id="catNew" placeholder="Nova atividade do catálogo" aria-label="Nova atividade do catálogo">
+        <button type="button" class="b-main" id="btnAddCat">Adicionar</button>
+      </div>
+    </div>
+  </div>
+  <datalist id="atvSug"></datalist>
 </section>
 
 <section id="usersView">
@@ -859,6 +903,7 @@ async function adminCall(body){
 async function leaveGuard(){
   if (!dirty) return true;
   const scr = document.body.dataset.screen;
+  if (scr === 'implDet' && $('#imNome').value.trim()){ if (await saveImpl(true)){ markClean(); return true; } }
   const v = await ask('Sair sem salvar?', 'Há alterações nesta tela que ainda não foram salvas.', [['Cancelar','b-ghost',null],['Salvar e continuar','b-save','save'],['Descartar alterações','b-danger','go']]);
   if (!v) return false;
   if (v === 'save'){
@@ -982,16 +1027,21 @@ function openImpl(id){
   const c = currentImpl.dados.cliente || {};
   $('#imNome').value = c.nome || r?.cliente || ''; $('#imCittati').value = c.cittati || '';
   $('#imCliente').value = c.cliente || ''; $('#imProdutos').value = (c.produtos||[]).join(', ');
-  $('#implMsg').textContent = ''; markClean(); renderImplDet(); show('implDet');
+  $('#implMsg').textContent = ''; $('#implAuto').textContent = ''; clearTimeout(implTimer); markClean(); renderImplDet(); show('implDet');
+  document.querySelector('.itabs button[data-it=atv]').click(); loadCatalog();
   $('#btnImplDelete').hidden = !(isAdmin && currentImpl.id);
 }
 function readImplHeader(){
   return { nome:$('#imNome').value.trim(), cittati:$('#imCittati').value.trim(), cliente:$('#imCliente').value.trim(),
     produtos:$('#imProdutos').value.split(',').map(x=>x.trim()).filter(Boolean) };
 }
-function renderImplDet(){
-  const d = currentImpl.dados, atv = d.atividades || [];
-  $('#implTitle').textContent = $('#imNome').value.trim() || 'Nova implantação';
+const RESP_OPTS = ['Cittati','Cliente'];
+const STATUS_OPTS = ['Aguardando','Em andamento','Atenção','Concluído'];
+const STATUS_SEL = {'Concluído':'s-c','Em andamento':'s-a','Atenção':'s-w','Aguardando':'s-g'};
+let catalogo = [];
+
+function renderGroupsImpl(){
+  const atv = currentImpl.dados.atividades || [];
   const tiles = (t, resp) => { const s = implStats(atv, resp); return `<div class="group"><h3>${t} <small>(${s.n} atividade${s.n===1?'':'s'})</small></h3><div class="tiles">
     <div class="tile"><span>Progresso geral</span><b>${s.prog}%</b><div class="pbar" style="margin-top:6px"><i class="${s.prog>=100?'full':''}" style="width:${s.prog}%"></i></div></div>
     <div class="tile"><span>Concluídas</span><b>${s.concl}</b></div>
@@ -999,35 +1049,184 @@ function renderImplDet(){
     <div class="tile"><span>Atenção</span><b>${s.aten}</b></div>
     <div class="tile"><span>Aguardando</span><b>${s.agu}</b></div>
     <div class="tile"><span>Ativ. previstas</span><b>${atv.filter(a=>a.resp===resp).reduce((t,a)=>t+(Number(a.prev)||0),0)}</b></div></div></div>`; };
-  const sorted = [...atv].sort((a,b) => (a.ordem||0) - (b.ordem||0));
-  $('#implDetBody').innerHTML = `
-    <div class="groups">${tiles('Responsabilidade Cittati','Cittati')}${tiles('Responsabilidade do cliente','Cliente')}</div>
-    <div class="note">Nesta etapa as atividades aparecem só para consulta. A edição das atividades e o catálogo chegam na próxima etapa.</div>
-    ${sorted.length ? `<div class="ls-wrap"><table class="ls-table"><thead><tr><th>#</th><th>Atividade</th><th>Prev.</th><th>Real</th><th>Dias prev.</th><th>Dias real</th><th>Início</th><th>Fim</th><th>% concl.</th><th>Responsável</th><th>Status</th><th>Observação</th></tr></thead><tbody>
-      ${sorted.map(a => `<tr><td>${a.ordem||''}</td><td class="emp">${esc(a.nome)}</td><td>${a.prev??''}</td><td>${a.real??''}</td><td>${a.diasPrev??''}</td><td>${a.diasReal??''}</td>
-        <td>${a.inicio?fmtDate(a.inicio):'—'}</td><td>${a.fim?fmtDate(a.fim):'—'}</td><td>${pbar(Number(a.pct)||0)}</td><td>${esc(a.resp||'')}</td>
-        <td><span class="st ${STATUS_CLS[a.status]||'st-g'}">${esc(a.status||'')}</span></td><td style="max-width:260px">${esc(a.obs||'')}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="empty">Nenhuma atividade cadastrada para este cliente.</div>'}`;
+  $('#implGroups').innerHTML = tiles('Responsabilidade Cittati','Cittati') + tiles('Responsabilidade do cliente','Cliente');
 }
-$('#implForm').addEventListener('input', () => { markDirty(); $('#implTitle').textContent = $('#imNome').value.trim() || 'Nova implantação'; });
+function sortAtv(){
+  const atv = currentImpl.dados.atividades ||= [];
+  atv.sort((a,b) => (a.ordem||0) - (b.ordem||0));
+  atv.forEach((a,i) => a.ordem = i + 1);
+  return atv;
+}
+function renderAtvTable(){
+  const atv = sortAtv(), n = atv.length;
+  const opt = (opts, v) => opts.map(o => `<option${o===v?' selected':''}>${o}</option>`).join('');
+  $('#atvBody').innerHTML = n ? atv.map((a,i) => `<tr data-id="${a.id}">
+    <td class="ord">${i+1}<span class="ordb"><button type="button" data-mv="-1" ${i===0?'disabled':''} aria-label="Mover para cima">▲</button><button type="button" data-mv="1" ${i===n-1?'disabled':''} aria-label="Mover para baixo">▼</button></span></td>
+    <td><input type="text" list="atvSug" data-f="nome" value="${esc(a.nome||'')}" placeholder="Nome da atividade"></td>
+    <td><input type="number" min="0" step="1" data-f="prev" value="${Number(a.prev||0)}"></td>
+    <td><input type="number" min="0" step="1" data-f="real" value="${Number(a.real||0)}"></td>
+    <td><input type="number" min="0" step="0.5" data-f="diasPrev" value="${Number(a.diasPrev||0)}"></td>
+    <td><input type="number" min="0" step="0.5" data-f="diasReal" value="${Number(a.diasReal||0)}"></td>
+    <td><input type="date" data-f="inicio" value="${esc(a.inicio||'')}"></td>
+    <td><input type="date" data-f="fim" value="${esc(a.fim||'')}"></td>
+    <td class="pc" title="Calculado: Ativ. real ÷ Ativ. prevista">${pbar(Number(a.pct)||0)}</td>
+    <td><select data-f="resp" class="${a.resp==='Cliente'?'r-cli':'r-cit'}">${opt(RESP_OPTS,a.resp)}</select></td>
+    <td><select data-f="status" class="${STATUS_SEL[a.status]||'s-g'}">${opt(STATUS_OPTS,a.status)}</select></td>
+    <td><input type="text" data-f="obs" value="${esc(a.obs||'')}" placeholder="—"></td>
+    <td><button type="button" class="b-del" data-del aria-label="Remover atividade" title="Remover atividade">×</button></td>
+  </tr>`).join('') : '<tr><td colspan="13" class="empty" style="border:0">Nenhuma atividade ainda. Clique em "+ Adicionar atividade".</td></tr>';
+}
+function renderDatalist(){
+  const names = new Set(catalogo.map(c => c.nome));
+  (currentImpl?.dados.atividades||[]).forEach(a => a.nome && names.add(a.nome));
+  $('#atvSug').innerHTML = [...names].map(n => `<option value="${esc(n)}">`).join('');
+}
+function renderImplDet(){
+  $('#implTitle').textContent = $('#imNome').value.trim() || 'Nova implantação';
+  renderGroupsImpl(); renderAtvTable(); renderDatalist(); renderCatalog();
+}
+
+/* edição da tabela */
+function atvById(id){ return (currentImpl.dados.atividades||[]).find(a => String(a.id) === String(id)); }
+function implChanged(){ markDirty(); scheduleImplSave(); }
+$('#atvBody').addEventListener('input', e => {
+  const el = e.target, f = el.dataset.f; if (!f) return;
+  const a = atvById(el.closest('tr').dataset.id); if (!a) return;
+  if (f === 'prev' || f === 'real'){ a[f] = Math.max(0, parseInt(el.value,10) || 0); a.pct = a.prev > 0 ? Math.round(a.real / a.prev * 100) : 0;
+    el.closest('tr').querySelector('.pc').innerHTML = pbar(a.pct); renderGroupsImpl(); }
+  else if (f === 'diasPrev' || f === 'diasReal') a[f] = Math.max(0, parseFloat(String(el.value).replace(',','.')) || 0);
+  else a[f] = el.value;
+  if (f === 'status'){ el.className = STATUS_SEL[el.value] || 's-g'; renderGroupsImpl(); }
+  if (f === 'resp'){ el.className = el.value === 'Cliente' ? 'r-cli' : 'r-cit'; renderGroupsImpl(); }
+  if (f === 'nome'){ const c = catalogo.find(x => x.nome === el.value); a.catalogId = c ? c.id : null; }
+  implChanged();
+});
+$('#atvBody').addEventListener('change', e => { if (e.target.tagName === 'SELECT') e.target.dispatchEvent(new Event('input', {bubbles:true})); });
+$('#atvBody').addEventListener('click', async e => {
+  const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+  const atv = currentImpl.dados.atividades, a = atvById(tr.dataset.id);
+  const mv = e.target.closest('[data-mv]');
+  if (mv){ const i = atv.indexOf(a), j = i + Number(mv.dataset.mv); if (j < 0 || j >= atv.length) return;
+    [atv[i], atv[j]] = [atv[j], atv[i]]; atv.forEach((x,k) => x.ordem = k + 1); renderAtvTable(); implChanged(); return; }
+  if (e.target.closest('[data-del]')){
+    const v = await ask('Remover atividade?', `A atividade "${a.nome || 'sem nome'}" será removida desta implantação.`, [['Cancelar','b-ghost',null],['Remover','b-danger','ok']]);
+    if (!v) return;
+    atv.splice(atv.indexOf(a), 1); atv.forEach((x,k) => x.ordem = k + 1);
+    renderAtvTable(); renderGroupsImpl(); implChanged();
+  }
+});
+$('#btnAddAtv').addEventListener('click', () => {
+  const atv = currentImpl.dados.atividades ||= [];
+  const id = atv.reduce((m,a) => Math.max(m, Number(a.id)||0), 0) + 1;
+  atv.push({ id, ordem: atv.length + 1, nome:'', catalogId:null, prev:0, real:0, diasPrev:0, diasReal:0, inicio:'', fim:'', pct:0, resp:'Cittati', status:'Aguardando', obs:'' });
+  renderAtvTable(); renderGroupsImpl(); implChanged();
+  $(`#atvBody tr[data-id="${id}"] input[data-f=nome]`).focus();
+});
+
+/* abas */
+document.querySelectorAll('.itabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.itabs button').forEach(x => x.classList.toggle('active', x === b));
+  $('#itAtv').hidden = b.dataset.it !== 'atv'; $('#itCat').hidden = b.dataset.it !== 'cat';
+}));
+
+/* catálogo (compartilhado) */
+async function loadCatalog(){
+  const { data, error } = await sb.from('catalogo_atividades').select('id,nome').order('nome');
+  if (!error){ catalogo = data; renderCatalog(); renderDatalist(); }
+  else $('#catList').innerHTML = `<div class="note">Catálogo indisponível: ${esc(error.message)}</div>`;
+}
+function renderCatalog(){
+  $('#catList').innerHTML = catalogo.length ? catalogo.map(c => `<div class="catrow" data-cid="${c.id}">
+    <input type="text" value="${esc(c.nome)}" data-cat aria-label="Atividade do catálogo">
+    ${isAdmin ? '<button type="button" class="b-del" data-catdel aria-label="Remover do catálogo" title="Remover do catálogo">×</button>' : '<span></span>'}
+  </div>`).join('') : '<div class="empty">Nenhum item no catálogo ainda.</div>';
+}
+$('#catList').addEventListener('change', async e => {
+  if (!e.target.matches('[data-cat]')) return;
+  const id = e.target.closest('[data-cid]').dataset.cid, nome = e.target.value.trim(); if (!nome) return;
+  const { error } = await sb.from('catalogo_atividades').update({ nome }).eq('id', id);
+  if (error) flash('Erro ao salvar no catálogo: ' + error.message); else { const c = catalogo.find(x => String(x.id) === id); if (c) c.nome = nome; renderDatalist(); flash('Catálogo atualizado.'); }
+});
+$('#catList').addEventListener('click', async e => {
+  if (!e.target.closest('[data-catdel]')) return;
+  const row = e.target.closest('[data-cid]'), c = catalogo.find(x => String(x.id) === row.dataset.cid);
+  const v = await ask('Remover do catálogo?', `"${c.nome}" deixará de aparecer como sugestão. As implantações que já usam essa atividade não são alteradas.`, [['Cancelar','b-ghost',null],['Remover','b-danger','ok']]);
+  if (!v) return;
+  const { error } = await sb.from('catalogo_atividades').delete().eq('id', c.id);
+  if (error) flash('Erro: ' + error.message); else { catalogo = catalogo.filter(x => x !== c); renderCatalog(); renderDatalist(); }
+});
+async function addCatalog(){
+  const nome = $('#catNew').value.trim(); if (!nome) return;
+  if (catalogo.some(c => c.nome.toLowerCase() === nome.toLowerCase())){ flash('Essa atividade já está no catálogo.'); return; }
+  const { data, error } = await sb.from('catalogo_atividades').insert({ nome }).select('id,nome').single();
+  if (error){ flash('Erro: ' + error.message); return; }
+  catalogo.push({ id:data.id, nome }); catalogo.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+  $('#catNew').value = ''; renderCatalog(); renderDatalist(); $('#catNew').focus();
+}
+$('#btnAddCat').addEventListener('click', addCatalog);
+$('#catNew').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addCatalog(); } });
+
+/* salvamento automático */
+let implTimer = null;
+function scheduleImplSave(){
+  clearTimeout(implTimer);
+  if (!$('#imNome').value.trim()){ $('#implAuto').textContent = 'Informe o nome do cliente para salvar.'; return; }
+  $('#implAuto').textContent = 'Salvando…';
+  implTimer = setTimeout(() => saveImpl(true), 1500);
+}
+
+/* exportações */
+$('#btnImplCsv').addEventListener('click', async () => {
+  const c = readImplHeader(), atv = sortAtv();
+  const q = v => { v = String(v ?? ''); return /[";\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; };
+  const lines = [['Ordem','Atividade','Ativ. prev.','Ativ. real','Dias prev.','Dias real','Início','Fim','% concl.','Responsável','Status','Observação']]
+    .concat(atv.map(a => [a.ordem, a.nome, a.prev, a.real, String(a.diasPrev).replace('.',','), String(a.diasReal).replace('.',','), a.inicio?fmtDate(a.inicio):'', a.fim?fmtDate(a.fim):'', (a.pct||0)+'%', a.resp, a.status, a.obs]));
+  const csv = '\ufeff' + lines.map(l => l.map(q).join(';')).join('\r\n');
+  await save(`Implantacao_${fileSlug(c.nome)}.csv`, new Blob([csv], { type:'text/csv;charset=utf-8' })); flash('CSV exportado.');
+});
+$('#btnImplImg').addEventListener('click', async () => {
+  const el = $('#implDetView');
+  const canvas = await html2canvas(el, { scale:2, backgroundColor: getComputedStyle(document.body).backgroundColor, useCORS:true,
+    windowWidth: Math.max(1400, el.scrollWidth + 80),
+    onclone: d => { d.querySelectorAll('.ls-wrap').forEach(w => { w.style.overflow = 'visible'; }); const v = d.getElementById('implDetView'); v.style.maxWidth = 'none';
+      d.querySelectorAll('.det-bar button, .det-bar .autosave, .det-bar .pending, #btnAddAtv, .itabs, #itCat, .b-del, .ordb').forEach(x => x.style.display = 'none');
+      // troca os campos por texto para a imagem ficar legível
+      d.querySelectorAll('#implDetView input, #implDetView select').forEach(x => {
+        const sp = d.createElement('span'); let v = x.value;
+        if (x.type === 'date') v = v ? v.split('-').reverse().join('/') : '—';
+        sp.textContent = v || '—'; sp.style.cssText = 'display:inline-block;padding:4px 2px;font-size:13.5px;' + (x.tagName === 'SELECT' ? 'font-weight:700;padding:2px 8px;border-radius:999px;' : '');
+        if (x.tagName === 'SELECT'){ const cs = getComputedStyle(x); sp.style.background = cs.backgroundColor; sp.style.color = cs.color; }
+        if (x.closest('#implForm')) sp.style.fontWeight = '600';
+        x.replaceWith(sp); });
+      d.querySelectorAll('#atvTable th').forEach(th => th.style.minWidth = '0'); } });
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  await save(`Implantacao_${fileSlug(readImplHeader().nome)}.png`, blob); flash('Imagem exportada.');
+});
+function fileSlug(t){ return (t || 'Cliente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,''); }
+
+$('#implForm').addEventListener('input', () => { $('#implTitle').textContent = $('#imNome').value.trim() || 'Nova implantação'; implChanged(); });
 $('#btnNewImpl').addEventListener('click', () => openImpl(null));
 $('#btnImplBack').addEventListener('click', () => go('impl'));
 
-async function saveImpl(){
+let implSaving = false;
+async function saveImpl(silent){
+  clearTimeout(implTimer);
+  if (implSaving){ implTimer = setTimeout(() => saveImpl(silent), 800); return false; }
   const head = readImplHeader();
-  if (!head.nome){ $('#implMsg').textContent = 'Informe o nome do cliente antes de salvar.'; $('#imNome').focus(); return false; }
+  if (!head.nome){ $('#implMsg').textContent = 'Informe o nome do cliente antes de salvar.'; if (!silent) $('#imNome').focus(); return false; }
   currentImpl.dados.cliente = head;
-  $('#btnImplSave').disabled = true; $('#implMsg').textContent = '';
+  implSaving = true; $('#btnImplSave').disabled = true; $('#implMsg').textContent = '';
   const payload = { cliente: head.nome, dados: currentImpl.dados };
   const res = currentImpl.id
     ? await sb.from('implantacoes').update(payload).eq('id', currentImpl.id).select('id').single()
     : await sb.from('implantacoes').insert(payload).select('id').single();
-  $('#btnImplSave').disabled = false;
-  if (res.error){ $('#implMsg').textContent = 'Não foi possível salvar: ' + res.error.message; return false; }
+  implSaving = false; $('#btnImplSave').disabled = false;
+  if (res.error){ $('#implMsg').textContent = 'Não foi possível salvar: ' + res.error.message; $('#implAuto').textContent = 'Erro ao salvar'; return false; }
   currentImpl.id = res.data.id; markClean(); $('#btnImplDelete').hidden = !isAdmin;
-  flash('Implantação salva.'); return true;
+  $('#implAuto').textContent = 'Salvo às ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if (!silent) flash('Implantação salva.'); return true;
 }
-$('#btnImplSave').addEventListener('click', saveImpl);
+$('#btnImplSave').addEventListener('click', () => saveImpl(false));
 $('#btnImplDelete').addEventListener('click', async () => {
   if (!currentImpl?.id) return;
   const v = await ask('Excluir implantação?', `A implantação de ${$('#imNome').value || 'este cliente'} e todas as atividades dela serão apagadas definitivamente.`, [['Cancelar','b-ghost',null],['Excluir definitivamente','b-danger','del']]);
